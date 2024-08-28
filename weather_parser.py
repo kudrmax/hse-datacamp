@@ -12,9 +12,8 @@ class Parser:
     def __init__(self, url: str, driver_path: str):
         self.url = url
 
-        service = Service(executable_path=driver_path)
-        options = webdriver.ChromeOptions()
-        self.driver = Chrome(service=service, options=options)
+        self.service = Service(executable_path=driver_path)
+        self.options = webdriver.ChromeOptions()
 
     def _accept_cookies(self):
         # self.driver.find_element(By.XPATH, '//*[@id="cookie"]').click()
@@ -37,13 +36,13 @@ class Parser:
         view_button = self.driver.find_element(By.ID, "dateSubmit")
         view_button.click()
 
-        time.sleep(3)
+        time.sleep(10)
         return self.driver.page_source
 
     def _get_weather_data_from_html(self, html: str):
         soup = BeautifulSoup(html, 'html.parser')
         table = soup.find('table', {'class': 'mat-table'})
-        table = soup.find('tbody')
+        # table = soup.find('tbody')
         print(table)
         # table = soup.find('table', class_='mat-table cdk-table mat-sort ng-star-inserted').find('tbody')
         # rows = table.find_all('tr')
@@ -64,9 +63,10 @@ class Parser:
             return html
 
     def _get_parse_by_zip_code(self, zip_code: str):
+        self.driver = Chrome(service=self.service, options=self.options)
         html = self._get_html_by_zip_code(zip_code)
         self._save_html_to_file(html, save_to='weather_data.html')
-        # html = self._get_html_from_file('weather_data.html')
+        html = self._get_html_from_file('weather_data.html')
         result = self._get_weather_data_from_html(html)
         time.sleep(3)
 
