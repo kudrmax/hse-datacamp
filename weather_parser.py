@@ -1,3 +1,5 @@
+import time
+import pandas as pd
 from typing import List
 
 from bs4 import BeautifulSoup
@@ -6,8 +8,6 @@ from selenium.webdriver import Chrome
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from webdriver_manager.chrome import ChromeDriverManager
-import time
 
 
 class Parser:
@@ -48,7 +48,8 @@ class Parser:
             html = file.read()
             return html
 
-    def _getweather_data_from_html(self, html: str, zip_code: int):
+    def _get_weather_data_from_html(self, html: str, zip_code: int):
+        df = pd.DataFrame(columns=['zip_code', 'time', 'temperature', 'humidity', 'wind_speed'])
         soup = BeautifulSoup(html, 'html.parser')
         rows = soup.find('table', {'class': 'mat-table'}).find_all('tr')
         for row in rows:
@@ -61,7 +62,12 @@ class Parser:
             row_data['temperature'] = row_list[1].text.strip().split()[0]
             row_data['humidity'] = row_list[3].text.strip().split()[0]
             row_data['wind_speed'] = row_list[5].text.strip().split()[0]
-            print(row_data)
+
+            new_row = pd.DataFrame([row_data])
+            df = pd.concat([df, new_row], ignore_index=True)
+
+        with open(f'weather_data_csv/weather_data_{zip_code}.csv', 'w') as file:
+            df.to_csv(file, index=False)
 
     def save_weather_data(self, zip_codes: List[int], parse=False):
         try:
@@ -71,7 +77,7 @@ class Parser:
                     self._save_html(html, zip_code)
             for zip_code in zip_codes:
                 html = self._get_html_from_file(zip_code)
-                self._getweather_data_from_html(html, zip_code)
+                self._get_weather_data_from_html(html, zip_code)
         except Exception as e:
             print(e)
 
