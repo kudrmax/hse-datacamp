@@ -33,7 +33,8 @@ class Parser:
 
     def _get_weather_data_from_html(self, html: str):
         soup = BeautifulSoup(html, 'html.parser')
-        table = soup.find('table', {'class':'mat-table'})
+        table = soup.find('table', {'class': 'mat-table'})
+        table = soup.find('tbody')
         print(table)
         # table = soup.find('table', class_='mat-table cdk-table mat-sort ng-star-inserted').find('tbody')
         # rows = table.find_all('tr')
@@ -44,8 +45,19 @@ class Parser:
         #     cells = [td.text.strip() for td in tr.find_all(['td', 'th'])]
         #     rows.append(cells)
 
+    def _save_html_to_file(self, html: str, save_to: str = 'weather_data.html'):
+        with open(save_to, 'w') as file:
+            file.write(html)
+
+    def _get_html_from_file(self, file: str):
+        with open(file, 'r') as f:
+            html = f.read()
+            return html
+
     def _get_parse_by_zip_code(self, zip_code: str):
-        html = self._get_html_by_zip_code(zip_code)
+        # html = self._get_html_by_zip_code(zip_code)
+        # self._save_html_to_file(html, save_to='weather_data.html')
+        html = self._get_html_from_file('weather_data.html')
         result = self._get_weather_data_from_html(html)
 
     def parse(self, zip_code):
