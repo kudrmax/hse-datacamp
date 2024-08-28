@@ -1,3 +1,5 @@
+from typing import List
+
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver import Chrome
@@ -23,12 +25,12 @@ class Parser:
         # self.driver.find_element(By.XPATH, "//button[text()='Accept all']").click()
         pass
 
-    def _get_html_by_zip_code(self, zip_code: str):
+    def _get_html_by_zip_code(self, zip_code: int):
         self.driver.get(url)
 
         search_box = self.driver.find_element(By.ID, "historySearch")
         time.sleep(1)
-        search_box.send_keys(zip_code)
+        search_box.send_keys(str(zip_code))
         search_box.send_keys(Keys.RETURN)
         time.sleep(1)
 
@@ -38,6 +40,11 @@ class Parser:
 
         time.sleep(10)
         return self.driver.page_source
+
+    def _get_table(self, html: str):
+        soup = BeautifulSoup(html, 'html.parser')
+        table = soup.find('table', {'class': 'mat-table'})
+        return table
 
     def _get_weather_data_from_html(self, html: str):
         soup = BeautifulSoup(html, 'html.parser')
@@ -62,23 +69,23 @@ class Parser:
             html = f.read()
             return html
 
-    def _get_parse_by_zip_code(self, zip_code: str):
+    def _create_html_table(self, zip_code: int):
         self.driver = Chrome(service=self.service, options=self.options)
         html = self._get_html_by_zip_code(zip_code)
-        self._save_html_to_file(html, save_to='weather_data.html')
-        html = self._get_html_from_file('weather_data.html')
-        result = self._get_weather_data_from_html(html)
-        time.sleep(3)
+        table = self._get_table(html)
+        with open(f'html_tables/table_{zip_code}.html', 'w') as file:
+            file.write(str(table))
 
-    def parse(self, zip_code):
+    def parse(self, zip_codes: List[int]):
         try:
-            self._get_parse_by_zip_code(zip_code)
+            for zip_code in zip_codes:
+                self._create_html_table(zip_code)
         except Exception as e:
             print(e)
 
 
 if __name__ == '__main__':
-    zip_code = 10001
+    zip_codes = [125480]
     url = 'https://www.wunderground.com/history'
     driver_path = './driver/chromedriver'
     vpn_extension_path = ''
@@ -87,4 +94,4 @@ if __name__ == '__main__':
         url=url,
         driver_path=driver_path
     )
-    parser.parse(zip_code)
+    parser.parse(zip_codes)
