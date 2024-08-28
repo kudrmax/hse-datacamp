@@ -17,15 +17,8 @@ class Parser:
         self.service = Service(executable_path=driver_path)
         self.options = webdriver.ChromeOptions()
 
-    def _accept_cookies(self):
-        # self.driver.find_element(By.XPATH, '//*[@id="cookie"]').click()
-        # self.driver.find_element(By.CLASS_NAME, 'message-button').click()
-        # self.driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Accept all"]').click()
-        # self.driver.find_element(By.XPATH, "//button[text()='Accept all']").click()
-        # self.driver.find_element(By.XPATH, "//button[text()='Accept all']").click()
-        pass
-
-    def _get_html_by_zip_code(self, zip_code: int):
+    def _parse_html(self, zip_code: int):
+        self.driver = Chrome(service=self.service, options=self.options)
         self.driver.get(url)
 
         search_box = self.driver.find_element(By.ID, "historySearch")
@@ -41,45 +34,44 @@ class Parser:
         time.sleep(10)
         return self.driver.page_source
 
-    def _get_table(self, html: str):
+    def _get_table_from_html(self, html: str):
         soup = BeautifulSoup(html, 'html.parser')
         table = soup.find('table', {'class': 'mat-table'})
         return table
 
-    def _get_weather_data_from_html(self, html: str):
-        soup = BeautifulSoup(html, 'html.parser')
-        table = soup.find('table', {'class': 'mat-table'})
-        # table = soup.find('tbody')
-        print(table)
-        # table = soup.find('table', class_='mat-table cdk-table mat-sort ng-star-inserted').find('tbody')
-        # rows = table.find_all('tr')
-        # print(rows)
-        # table = soup.find('table', class_='mat-table')
-        # rows = []
-        # for tr in table.find_all('tr'):
-        #     cells = [td.text.strip() for td in tr.find_all(['td', 'th'])]
-        #     rows.append(cells)
-
-    def _save_html_to_file(self, html: str, save_to: str = 'weather_data.html'):
-        with open(save_to, 'w') as file:
+    def _save_html(self, html, zip_code: int):
+        with open(f'html_tables/table_{zip_code}.html', 'w') as file:
             file.write(html)
 
-    def _get_html_from_file(self, file: str):
-        with open(file, 'r') as f:
-            html = f.read()
+    def _get_html_from_file(self, zip_code: int):
+        with open(f'html_tables/table_{zip_code}.html', 'r') as file:
+            html = file.read()
             return html
 
-    def _create_html_table(self, zip_code: int):
-        self.driver = Chrome(service=self.service, options=self.options)
-        html = self._get_html_by_zip_code(zip_code)
-        table = self._get_table(html)
-        with open(f'html_tables/table_{zip_code}.html', 'w') as file:
-            file.write(str(table))
+    def _getweather_data_from_html(self, html: str, zip_code: int):
+        soup = BeautifulSoup(html, 'html.parser')
+        rows = soup.find('table', {'class': 'mat-table'}).find_all('tr')
+        for row in rows:
+            row_list = row.find_all('td')
+            row_data = {}
+            if not len(row_list) == 10:
+                continue
+            row_data['zip_code'] = zip_code
+            row_data['time'] = row_list[0].text.strip()
+            row_data['temperature'] = row_list[1].text.strip().split()[0]
+            row_data['humidity'] = row_list[3].text.strip().split()[0]
+            row_data['wind_speed'] = row_list[5].text.strip().split()[0]
+            print(row_data)
 
-    def parse(self, zip_codes: List[int]):
+    def save_weather_data(self, zip_codes: List[int], parse=False):
         try:
+            if parse:
+                for zip_code in zip_codes:
+                    html = self._parse_html(zip_code)
+                    self._save_html(html, zip_code)
             for zip_code in zip_codes:
-                self._create_html_table(zip_code)
+                html = self._get_html_from_file(zip_code)
+                self._getweather_data_from_html(html, zip_code)
         except Exception as e:
             print(e)
 
@@ -94,4 +86,4 @@ if __name__ == '__main__':
         url=url,
         driver_path=driver_path
     )
-    parser.parse(zip_codes)
+    parser.save_weather_data(zip_codes, parse=False)
