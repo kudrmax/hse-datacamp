@@ -63,6 +63,20 @@ class Parser:
         search_box.send_keys(Keys.RETURN)
         time.sleep(1)
 
+        # заполнение даты
+        # dropdown = self.driver.find_element(By.ID, 'monthSelection')
+        # select = Select(dropdown)
+        # select.select_by_visible_text('June')
+        # time.sleep(1)
+        for id, data in zip(
+                ['monthSelection', 'daySelection', 'yearSelection'],
+                ['June', '1', '2023'],
+        ):
+            dropdown = self.driver.find_element(By.ID, id)
+            select = Select(dropdown)
+            select.select_by_visible_text(data)
+            time.sleep(1)
+
         # нажатие на кнопку
         search_box.submit()
         view_button = self.driver.find_element(By.ID, "dateSubmit")
