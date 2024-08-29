@@ -1,3 +1,4 @@
+import os
 import time
 import datetime
 
@@ -17,22 +18,39 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 class Checker:
-    def __init__(self, file_name: str):
-        self.file_name = file_name
-        self.set = None
+    def __init__(self, html_dir_path: str):
+        filenames = os.listdir(html_dir_path)
+        filenames = [f for f in filenames if os.path.isfile(os.path.join(html_dir_path, f))]
+        self.set = set()
+        for filename in filenames:
+            filename_list = filename.split('_')
+            self.set.add(filename_list[1] + '_' + filename_list[2].split('.')[0])
+        print(self.set)
 
     def mark_data_as_done(self, data):
-        if not self.is_data_already_parsed(data):
-            with open(self.file_name, 'a') as f:
-                f.write(data)
-                f.write('\n')
+        self.set.add(data)
 
     def is_data_already_parsed(self, data, update_set=False):
-        with open(self.file_name, 'r') as f:
-            lines = f.readlines()
-        if update_set or not self.set:
-            self.set = set([line.strip() for line in lines])
         return data in self.set
+
+
+class HTMLDataSaver:
+    @staticmethod
+    def _get_table_from_html(html: str):
+        soup = BeautifulSoup(html, 'html.parser')
+        table = soup.find('table', {'class': 'mat-table'})
+        return table
+
+    @staticmethod
+    def _save_html(html, zip_code: int, date: datetime.date):
+        with open(f'html_tables/table_{zip_code}_{date}.html', 'w') as file:
+            file.write(html)
+
+    @staticmethod
+    def _get_html_from_file(zip_code: int, date: datetime.date):
+        with open(f'html_tables/table_{zip_code}_{date}.html', 'r') as file:
+            html = file.read()
+            return html
 
 
 class Parser:
@@ -40,32 +58,34 @@ class Parser:
             self,
             url: str,
             driver_path: str,
-            html_check_file_path
+            html_dir_path
     ):
         self.url = url
-        self.html_checker = Checker(html_check_file_path)
+        self.html_checker = Checker(html_dir_path)
+        self.html_saver = HTMLDataSaver()
+
         self.service = Service(executable_path=driver_path)
         self.options = webdriver.ChromeOptions()
         self.options.page_load_strategy = 'none'
 
     @staticmethod
-    def date_range_generator(start_date, end_date):
+    def date_range_generator(start_date: datetime.date, end_date: datetime.date):
         current_date = start_date
         while current_date <= end_date:
             yield current_date
             current_date += datetime.timedelta(days=1)
 
     @staticmethod
-    def _get_data_for_checker(zip_code: int, date: datetime.date):
+    def _get_data_for_checker(zip_code: int, date: datetime.date) -> str:
         return f'{zip_code}_{date}'
 
-    def _parse_html(self, zip_code: int, date: datetime.date):
+    def _parse_html(self, zip_code: int, date: datetime.date) -> str | None:
         self.driver.get(self.url)
-        WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, 'historySearch')))
-        WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, 'yearSelection')))
-        WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, 'daySelection')))
-        WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, 'monthSelection')))
-        WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, 'dateSubmit')))
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'historySearch')))
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'yearSelection')))
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'daySelection')))
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'monthSelection')))
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.ID, 'dateSubmit')))
 
         # ввод индекса
         search_box = self.driver.find_element(By.ID, "historySearch")
@@ -109,21 +129,7 @@ class Parser:
         except TimeoutException:
             return None
 
-    def _get_table_from_html(self, html: str):
-        soup = BeautifulSoup(html, 'html.parser')
-        table = soup.find('table', {'class': 'mat-table'})
-        return table
-
-    def _save_html(self, html, zip_code: int, date: datetime.date):
-        with open(f'html_tables/table_{zip_code}_{date}.html', 'w') as file:
-            file.write(html)
-
-    def _get_html_from_file(self, zip_code: int, date: datetime.date):
-        with open(f'html_tables/table_{zip_code}_{date}.html', 'r') as file:
-            html = file.read()
-            return html
-
-    def _get_weather_data_from_html(self, html: str, zip_code: int, date: datetime.date):
+    def _get_weather_data_from_html(self, html: str, zip_code: int, date: datetime.date) -> None:
         df = pd.DataFrame(columns=['zip_code', 'date', 'time', 'temperature', 'humidity', 'wind_speed'])
         soup = BeautifulSoup(html, 'html.parser')
         rows = soup.find('table', {'class': 'mat-table'}).find_all('tr')
@@ -145,6 +151,28 @@ class Parser:
         with open(f'weather_data_csv/weather_data_{zip_code}_{date}.csv', 'w') as file:
             df.to_csv(file, index=False)
 
+    def parse(self, zip_codes: List[int], start_date: datetime.date, end_date: datetime.date) -> None:
+        self.driver = Chrome(service=self.service, options=self.options)
+        for zip_code in zip_codes:
+            for date in self.date_range_generator(start_date, end_date):
+                if self.html_checker.is_data_already_parsed(self._get_data_for_checker(zip_code, date)):
+                    print(f'The page was skipped: {zip_code} {date}')
+                    continue
+                html = self._parse_html(zip_code, date)
+                if html:
+                    self.html_saver._save_html(html, zip_code, date)
+                    self.html_checker.mark_data_as_done(self._get_data_for_checker(zip_code, date))
+                    print(f'The page was parsed: {zip_code} {date}')
+                else:
+                    print(f'The page was NOT parsed: {zip_code} {date}')
+
+    def save_csv(self, zip_codes: List[int], start_date: datetime.date, end_date: datetime.date) -> None:
+        for zip_code in zip_codes:
+            for date in self.date_range_generator(start_date, end_date):
+                html = self.html_saver._get_html_from_file(zip_code, date)
+                self._get_weather_data_from_html(html, zip_code, date)
+                print(f'The page was saved as csv: {zip_code} {date}')
+
     def save_weather_data(
             self,
             zip_codes: List[int],
@@ -155,27 +183,10 @@ class Parser:
     ):
         try:
             if parse:
-                self.driver = Chrome(
-                    service=self.service,
-                    options=self.options,
-                )
-                for zip_code in zip_codes:
-                    for date in self.date_range_generator(start_date, end_date):
-                        if self.html_checker.is_data_already_parsed(self._get_data_for_checker(zip_code, date)):
-                            continue
-                        html = self._parse_html(zip_code, date)
-                        if html:
-                            self._save_html(html, zip_code, date)
-                            self.html_checker.mark_data_as_done(self._get_data_for_checker(zip_code, date))
-                            print(f'The page was parsed: {zip_code} {date}')
-                        else:
-                            print(f'The page was NOT parsed: {zip_code} {date}')
+                print('Parsing was started')
+                self.parse(zip_codes, start_date, end_date)
             if save_csv:
-                for zip_code in zip_codes:
-                    for date in self.date_range_generator(start_date, end_date):
-                        html = self._get_html_from_file(zip_code, date)
-                        self._get_weather_data_from_html(html, zip_code, date)
-                        print(f'The page was saved as csv: {zip_code} {date}')
+                self.save_csv(zip_codes, start_date, end_date)
         except Exception as e:
             if '{"method":"css selector","selector":"[id="historySearch"]"}' in str(e):
                 print('You have to turn on VPN')
@@ -186,21 +197,21 @@ class Parser:
 if __name__ == '__main__':
     zip_codes = [125480]
     start_date = datetime.date(2024, 6, 1)
-    end_date = datetime.date(2024, 6, 2)
+    end_date = datetime.date(2024, 6, 3)
 
     url = 'https://www.wunderground.com/history'
     driver_path = './driver/chromedriver'
-    html_check_file_path = './done_html.txt'
+    html_dir_path = './html_tables'
 
     parser = Parser(
         url=url,
         driver_path=driver_path,
-        html_check_file_path=html_check_file_path
+        html_dir_path=html_dir_path
     )
     parser.save_weather_data(
         zip_codes,
         start_date,
         end_date,
-        parse=False,
+        parse=True,
         save_csv=True
     )
