@@ -64,18 +64,22 @@ class Parser:
         time.sleep(1)
 
         # заполнение даты
-        # dropdown = self.driver.find_element(By.ID, 'monthSelection')
-        # select = Select(dropdown)
-        # select.select_by_visible_text('June')
-        # time.sleep(1)
-        for id, data in zip(
-                ['monthSelection', 'daySelection', 'yearSelection'],
-                ['June', '1', '2023'],
-        ):
+        def get_select(id):
             dropdown = self.driver.find_element(By.ID, id)
             select = Select(dropdown)
-            select.select_by_visible_text(data)
-            time.sleep(1)
+            return select
+
+        select = get_select('monthSelection')
+        select.select_by_value(f'{date.month}')
+        time.sleep(1)
+
+        select = get_select('daySelection')
+        select.select_by_value(f'{date.day}')
+        time.sleep(1)
+
+        select = get_select('yearSelection')
+        select.select_by_value(f'{date.year}')
+        time.sleep(1)
 
         # нажатие на кнопку
         search_box.submit()
@@ -148,7 +152,7 @@ class Parser:
 if __name__ == '__main__':
     zip_codes = [125480]
     start_date = datetime.date(2024, 6, 1)
-    end_date = datetime.date(2024, 6, 1)
+    end_date = datetime.date(2024, 6, 2)
 
     url = 'https://www.wunderground.com/history'
     driver_path = './driver/chromedriver'
