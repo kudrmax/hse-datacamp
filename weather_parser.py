@@ -2,15 +2,18 @@ import time
 import datetime
 
 import pandas as pd
-from typing import List, Tuple
+from typing import List
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.common import TimeoutException
 from selenium.webdriver import Chrome
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.select import Select
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 class Checker:
@@ -23,11 +26,11 @@ class Checker:
             f.write(data)
             f.write('\n')
 
-    def check_data_is_done(self, data, update_set=False):
+    def is_data_already_parsed(self, data, update_set=False):
         with open(self.file_name, 'r') as f:
             lines = f.readlines()
         if update_set or not self.set:
-            self.set = set(lines)
+            self.set = set([line.strip() for line in lines])
         return data in self.set
 
 
@@ -59,10 +62,11 @@ class Parser:
 
         # ввод индекса
         search_box = self.driver.find_element(By.ID, "historySearch")
-        time.sleep(1)
+        # time.sleep(1)
         search_box.send_keys(str(zip_code))
         search_box.send_keys(Keys.RETURN)
-        time.sleep(1)
+
+        # time.sleep(1)
 
         # заполнение даты
         def get_select(id):
@@ -72,24 +76,29 @@ class Parser:
 
         select = get_select('monthSelection')
         select.select_by_value(f'{date.month}')
-        time.sleep(1)
+        # time.sleep(1)
 
         select = get_select('daySelection')
         select.select_by_visible_text(f'{date.day}')
-        time.sleep(1)
+        # time.sleep(1)
 
         select = get_select('yearSelection')
         select.select_by_visible_text(f'{date.year}')
-        time.sleep(1)
+        # time.sleep(1)
 
         # нажатие на кнопку
+        time.sleep(1)
         search_box.submit()
         view_button = self.driver.find_element(By.ID, "dateSubmit")
         view_button.click()
 
         # ожидание загрузки
-        time.sleep(10)
-        return self.driver.page_source
+        try:
+            # time.sleep(10)
+            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'mat-table')))
+            return self.driver.page_source
+        except TimeoutException:
+            return None
 
     def _get_table_from_html(self, html: str):
         soup = BeautifulSoup(html, 'html.parser')
@@ -139,14 +148,23 @@ class Parser:
                 self.driver = Chrome(service=self.service, options=self.options)
                 for zip_code in zip_codes:
                     for date in self.date_range_generator(start_date, end_date):
+                        if self.html_checker.is_data_already_parsed(self._get_data_for_checker(zip_code, date)):
+                            continue
                         html = self._parse_html(zip_code, date)
-                        self._save_html(html, zip_code, date)
-                        self.html_checker.mark_data_as_done(self._get_data_for_checker(zip_code, date))
-            for zip_code in zip_codes:
-                for date in self.date_range_generator(start_date, end_date):
-                    html = self._get_html_from_file(zip_code, date)
-                    self._get_weather_data_from_html(html, zip_code, date)
+                        if html:
+                            self._save_html(html, zip_code, date)
+                            self.html_checker.mark_data_as_done(self._get_data_for_checker(zip_code, date))
+                            print(f'The page was parsed: {zip_code} {date}')
+                        else:
+                            print(f'The page was NOT parsed: {zip_code} {date}')
+            # for zip_code in zip_codes:
+            #     for date in self.date_range_generator(start_date, end_date):
+            #         html = self._get_html_from_file(zip_code, date)
+            #         self._get_weather_data_from_html(html, zip_code, date)
         except Exception as e:
+            if '{"method":"css selector","selector":"[id="historySearch"]"}' in str(e):
+                print('You have to turn on VPN')
+                return
             print(e)
 
 
