@@ -21,6 +21,7 @@ class Checker:
     def mark_data_as_done(self, data):
         with open(self.file_name, 'a') as f:
             f.write(data)
+            f.write('\n')
 
     def check_data_is_done(self, data, update_set=False):
         with open(self.file_name, 'r') as f:
@@ -74,11 +75,11 @@ class Parser:
         time.sleep(1)
 
         select = get_select('daySelection')
-        select.select_by_value(f'{date.day}')
+        select.select_by_visible_text(f'{date.day}')
         time.sleep(1)
 
         select = get_select('yearSelection')
-        select.select_by_value(f'{date.year}')
+        select.select_by_visible_text(f'{date.year}')
         time.sleep(1)
 
         # нажатие на кнопку
