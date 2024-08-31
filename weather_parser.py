@@ -119,7 +119,7 @@ class Parser:
     def save_station_of_zip_code_to_csv(self, zip_code: int):
         station = self.get_station_of_zip_code_from_csv(zip_code)
         if station:
-            print(f'Станция для {zip_code=} уже была получена')
+            # print(f'Станция для {zip_code=} уже была получена')
             return
         station = self._get_station_by_zip_code(zip_code, datetime.date(2024, 6, 1))
         if station:
@@ -192,38 +192,32 @@ if __name__ == '__main__':
     end_date = datetime.date(2024, 6, 20)
 
     # получение всех зип кодов
-    data = pd.read_csv('data/zip_codes.csv')
+    data = pd.read_csv('data/zip_codes_new.csv')
     zip_codes = list(data['zip_code'])
 
     parser._run_driver()
 
     # получение пар (зип код, станция)
-    # for zip_code in zip_codes:
-    #     parser.save_station_of_zip_code_to_csv(zip_code)
+    for zip_code in zip_codes:
+        parser.save_station_of_zip_code_to_csv(zip_code)
 
     # получение погоды для конкретной станции
     # сохранение погоды для станции для даты
-    station_set = parser._get_set_of_station()
-    print(f'Все станции: {station_set}')
-    for station in station_set:
-        for date in date_range_generator(start_date, end_date):
-            html = parser.get_weather_html_by_station(station, date)
-            if html:
-                with open(f'data/weather_of_stations_at_date/weather_of_station_{station}_at_{date}.html', 'w') as f:
-                    f.write(html)
+    # station_set = parser._get_set_of_station()
+    # print(f'Все станции: {station_set}')
+    # for station in station_set:
+    #     for date in date_range_generator(start_date, end_date):
+    #         html = parser.get_weather_html_by_station(station, date)
+    #         if html:
+    #             with open(f'data/weather_of_stations_at_date/weather_of_station_{station}_at_{date}.html', 'w') as f:
+    #                 f.write(html)
 
     # парсинг собранных html
     # для кода находим станцию и находим нужный html и парсим его
-    counter_bad = 0
-    counter_good = 0
-    counter = 0
-    counter2 = 0
     done_zip_codes_and_dates = get_set_of_existing_zip_code_date_pair()
-    s = set()
     for zip_code in zip_codes:
         for date in date_range_generator(start_date, end_date):
             if (zip_code, date) not in done_zip_codes_and_dates:
-                counter += 1
                 station = parser.get_station_of_zip_code_from_csv(zip_code)
                 if not station:
                     print(f'Не известна станция для {zip_code=}')
@@ -235,11 +229,3 @@ if __name__ == '__main__':
                 weather_df = parser.get_weather_df_from_html(html, zip_code, date)
                 weather_df.to_csv(f'data/weather_of_zip_codes_at_date/weather_of_zip_code_{zip_code}_at_{date}.csv')
                 print(f'Погода для {zip_code=} за дату {date} была записана в файл')
-                # counter_good += 1
-    print(f'{len(done_zip_codes_and_dates) = }')
-    print(f'{counter_bad = }')
-    print(f'{counter_good = }')
-    print(f'{counter = }')
-    print(f'{counter2 = }')
-    print(len(zip_codes))
-    print(len(set(zip_codes)))
